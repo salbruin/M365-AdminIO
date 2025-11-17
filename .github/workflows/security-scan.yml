@@ -1,0 +1,215 @@
+name: Container Security Scan
+
+on:
+  push:
+    branches: [ main, develop, claude/* ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run weekly on Monday at 2 AM UTC
+    - cron: '0 2 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write  # For uploading to GitHub Security tab
+
+jobs:
+  trivy-scan:
+    name: Trivy Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          load: true
+          tags: m365-adminio-onedrive-scanner:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: m365-adminio-onedrive-scanner:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      - name: Upload Trivy results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Run Trivy for table output
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: m365-adminio-onedrive-scanner:${{ github.sha }}
+          format: 'table'
+          severity: 'CRITICAL,HIGH,MEDIUM,LOW'
+
+      - name: Check for critical vulnerabilities
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: m365-adminio-onedrive-scanner:${{ github.sha }}
+          format: 'json'
+          output: 'trivy-results.json'
+          severity: 'CRITICAL'
+          exit-code: '1'  # Fail on critical vulnerabilities
+
+      - name: Upload scan results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-scan-results
+          path: |
+            trivy-results.sarif
+            trivy-results.json
+          retention-days: 30
+
+  sbom-generation:
+    name: Generate SBOM
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          load: true
+          tags: m365-adminio-onedrive-scanner:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Generate SBOM (CycloneDX)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: m365-adminio-onedrive-scanner:${{ github.sha }}
+          format: 'cyclonedx'
+          output: 'sbom-cyclonedx.json'
+
+      - name: Generate SBOM (SPDX)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: m365-adminio-onedrive-scanner:${{ github.sha }}
+          format: 'spdx-json'
+          output: 'sbom-spdx.json'
+
+      - name: Upload SBOM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-files
+          path: |
+            sbom-cyclonedx.json
+            sbom-spdx.json
+          retention-days: 90
+
+      - name: Attest SBOM with Sigstore
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/attest-sbom@v1
+        with:
+          subject-path: sbom-cyclonedx.json
+          sbom-path: sbom-cyclonedx.json
+
+  dockerfile-scan:
+    name: Scan Dockerfile
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy config scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'config-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      - name: Upload config scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'config-results.sarif'
+          category: 'dockerfile'
+
+  secret-scan:
+    name: Scan for Secrets
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy secret scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          scanners: 'secret'
+          format: 'sarif'
+          output: 'secret-results.sarif'
+          exit-code: '1'  # Fail if secrets found
+
+      - name: Upload secret scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'secret-results.sarif'
+          category: 'secrets'
+
+  dependency-scan:
+    name: Python Dependency Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Safety check
+        run: |
+          pip install safety
+          safety check --json --output safety-report.json || true
+
+      - name: Run pip-audit
+        run: |
+          pip install pip-audit
+          pip-audit --format json --output pip-audit-report.json || true
+
+      - name: Upload dependency scan results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dependency-scan-results
+          path: |
+            safety-report.json
+            pip-audit-report.json
+          retention-days: 30

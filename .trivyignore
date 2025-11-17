@@ -1,0 +1,5 @@
+# Trivy Ignore File
+# Add CVEs to ignore here with justification
+
+# Example:
+# CVE-2024-1234  # Not applicable - we don't use the affected feature

@@ -82,18 +82,40 @@ case $MODE in
         docker-compose run --rm onedrive-scanner /bin/bash
         ;;
 
+    security-scan)
+        echo -e "${YELLOW}Running security scan with Trivy...${NC}"
+        ./scripts/security-scan.sh
+        echo -e "${GREEN}✓ Security scan complete${NC}"
+        echo "Reports available in: ./security-reports/"
+        ;;
+
+    sbom)
+        echo -e "${YELLOW}Generating SBOM...${NC}"
+        ./scripts/generate-sbom.sh
+        echo -e "${GREEN}✓ SBOM generation complete${NC}"
+        echo "SBOM files available in: ./sbom/"
+        ;;
+
+    install-trivy)
+        echo -e "${YELLOW}Installing Trivy...${NC}"
+        ./scripts/install-trivy.sh
+        ;;
+
     *)
-        echo "Usage: $0 {build|run|scheduled|viewer|all|stop|clean|shell}"
+        echo "Usage: $0 {build|run|scheduled|viewer|all|stop|clean|shell|security-scan|sbom|install-trivy}"
         echo ""
         echo "Commands:"
-        echo "  build     - Build the Docker image"
-        echo "  run       - Run a single scan"
-        echo "  scheduled - Start scheduled scanning (cron)"
-        echo "  viewer    - Start web viewer for reports"
-        echo "  all       - Start all services"
-        echo "  stop      - Stop all services"
-        echo "  clean     - Clean up Docker resources"
-        echo "  shell     - Open shell in container"
+        echo "  build          - Build the Docker image"
+        echo "  run            - Run a single scan"
+        echo "  scheduled      - Start scheduled scanning (cron)"
+        echo "  viewer         - Start web viewer for reports"
+        echo "  all            - Start all services"
+        echo "  stop           - Stop all services"
+        echo "  clean          - Clean up Docker resources"
+        echo "  shell          - Open shell in container"
+        echo "  security-scan  - Run Trivy security scan on container"
+        echo "  sbom           - Generate Software Bill of Materials"
+        echo "  install-trivy  - Install Trivy scanner"
         exit 1
         ;;
 esac

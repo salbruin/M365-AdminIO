@@ -214,6 +214,15 @@ python scanner.py --verbose
 
 # Open shell in container
 ./run-docker.sh shell
+
+# Security scanning
+./run-docker.sh security-scan
+
+# Generate SBOM
+./run-docker.sh sbom
+
+# Install Trivy
+./run-docker.sh install-trivy
 ```
 
 ### Manual Docker Commands
@@ -235,6 +244,62 @@ docker-compose --profile scheduled up -d onedrive-scanner-scheduled
 docker-compose --profile viewer up -d report-viewer
 # Then visit: http://localhost:8080/reports/
 ```
+
+## Security Scanning
+
+This project includes comprehensive security scanning using [Trivy](https://trivy.dev/) to ensure container security and generate Software Bill of Materials (SBOM).
+
+### Quick Security Scan
+
+```bash
+# Install Trivy (first time only)
+./run-docker.sh install-trivy
+
+# Run full security scan
+./run-docker.sh security-scan
+
+# Generate SBOM
+./run-docker.sh sbom
+```
+
+### What Gets Scanned
+
+1. **Container Vulnerabilities** - Known CVEs in OS and Python packages
+2. **Configuration Issues** - Dockerfile best practices and misconfigurations
+3. **Secrets** - Accidentally committed credentials or keys
+4. **Dependencies** - Python package vulnerabilities
+5. **Licenses** - Open source license compliance
+
+### Security Reports Generated
+
+```
+security-reports/
+├── dockerfile-scan.txt       # Dockerfile security issues
+├── filesystem-scan.txt       # Source code vulnerabilities
+├── secret-scan.txt           # Detected secrets
+├── image-scan.txt            # Container vulnerabilities (table)
+├── image-scan.json           # Container vulnerabilities (JSON)
+└── image-scan.html           # Visual HTML report
+
+sbom/
+├── sbom_TIMESTAMP_cyclonedx.json  # CycloneDX format (industry standard)
+├── sbom_TIMESTAMP_spdx.json       # SPDX format (Linux Foundation)
+├── sbom_TIMESTAMP_packages.txt    # Human-readable package list
+└── licenses_TIMESTAMP.txt         # License report
+```
+
+### CI/CD Integration
+
+Security scans run automatically via GitHub Actions on:
+- Every push to main/develop branches
+- Every pull request
+- Weekly schedule (Monday 2 AM UTC)
+
+Results appear in:
+- GitHub Security tab (Code scanning alerts)
+- Actions tab (Workflow artifacts)
+
+For detailed security information, see [SECURITY.md](SECURITY.md).
 
 ## Output Reports
 

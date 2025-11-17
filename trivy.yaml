@@ -1,0 +1,51 @@
+# Trivy Configuration File
+# https://aquasecurity.github.io/trivy/latest/docs/configuration/
+
+# Scan settings
+scan:
+  # Security issues to detect
+  security-checks:
+    - vuln      # Vulnerabilities
+    - config    # Misconfigurations
+    - secret    # Secrets
+
+# Vulnerability settings
+vulnerability:
+  type:
+    - os        # OS packages
+    - library   # Language-specific packages
+
+# Severity levels to report
+severity:
+  - CRITICAL
+  - HIGH
+  - MEDIUM
+  - LOW
+
+# Report format
+format: table
+
+# Exit code
+exit-code: 1  # Fail on vulnerabilities found
+
+# Cache settings
+cache:
+  clear: false
+
+# Ignore unfixed vulnerabilities
+ignore-unfixed: false
+
+# Timeout
+timeout: 5m
+
+# Skip directories
+skip-dirs:
+  - venv/
+  - .venv/
+  - node_modules/
+  - .git/
+
+# Skip files
+skip-files:
+  - "**/*.md"
+  - "**/*.txt"

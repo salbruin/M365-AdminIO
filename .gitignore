@@ -47,6 +47,10 @@ reports/
 *.html
 *.xlsx
 
+# Security reports and SBOM
+security-reports/
+sbom/
+
 # OS
 .DS_Store
 Thumbs.db
