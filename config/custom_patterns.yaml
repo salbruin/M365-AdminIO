@@ -1,0 +1,26 @@
+# Custom Sensitive Data Patterns
+# Add your organization-specific patterns here
+
+# Example: Custom employee ID pattern
+custom_employee_id:
+  pattern: 'EMP-\d{6}'
+  level: medium
+  description: 'Employee ID Number'
+
+# Example: Custom project code
+custom_project_code:
+  pattern: 'PROJ-[A-Z]{3}-\d{4}'
+  level: low
+  description: 'Internal Project Code'
+
+# Example: Custom customer reference
+custom_customer_ref:
+  pattern: 'CUST\d{8}'
+  level: high
+  description: 'Customer Reference Number'
+
+# You can add more patterns following this format:
+# pattern_name:
+#   pattern: 'regex-pattern-here'
+#   level: critical|high|medium|low
+#   description: 'Human readable description'

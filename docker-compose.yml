@@ -1,0 +1,90 @@
+version: '3.8'
+
+services:
+  onedrive-scanner:
+    build: .
+    container_name: m365-onedrive-scanner
+    environment:
+      # M365 Configuration (override with .env file)
+      - CLIENT_ID=${CLIENT_ID}
+      - TENANT_ID=${TENANT_ID}
+      - CLIENT_SECRET=${CLIENT_SECRET}
+      - REDIRECT_URI=${REDIRECT_URI:-http://localhost:8000}
+
+      # Scanning Configuration
+      - SCAN_ALL_USERS=${SCAN_ALL_USERS:-true}
+      - SPECIFIC_USERS=${SPECIFIC_USERS:-}
+
+      # Flags
+      - FLAG_ANYONE_LINKS=${FLAG_ANYONE_LINKS:-true}
+      - FLAG_ORG_LINKS=${FLAG_ORG_LINKS:-false}
+
+      # Output Settings
+      - OUTPUT_FORMAT=${OUTPUT_FORMAT:-json,csv,html}
+      - OUTPUT_DIR=/app/reports
+
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_FILE=/app/logs/scanner.log
+
+    volumes:
+      # Mount .env file for configuration
+      - ./.env:/app/.env:ro
+
+      # Mount reports directory to persist output
+      - ./reports:/app/reports
+
+      # Mount logs directory
+      - ./logs:/app/logs
+
+      # Optional: Mount custom patterns/config
+      - ./config:/app/config:ro
+
+    # Network mode for OAuth redirect (if using interactive auth)
+    network_mode: "host"
+
+    # Default command (can be overridden)
+    command: ["python", "scanner.py"]
+
+  # Optional: Scheduled scanner using cron
+  onedrive-scanner-scheduled:
+    build: .
+    container_name: m365-onedrive-scanner-cron
+    environment:
+      - CLIENT_ID=${CLIENT_ID}
+      - TENANT_ID=${TENANT_ID}
+      - CLIENT_SECRET=${CLIENT_SECRET}
+      - SCAN_ALL_USERS=true
+      - OUTPUT_FORMAT=json,csv,html
+      - OUTPUT_DIR=/app/reports
+      - LOG_LEVEL=INFO
+
+    volumes:
+      - ./.env:/app/.env:ro
+      - ./reports:/app/reports
+      - ./logs:/app/logs
+      - ./cron-schedule:/etc/cron.d/scanner-cron:ro
+
+    # This service runs on a schedule - customize cron-schedule file
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        apt-get update && apt-get install -y cron
+        crontab /etc/cron.d/scanner-cron
+        cron -f
+
+    profiles:
+      - scheduled
+
+  # Optional: Web dashboard for viewing reports
+  report-viewer:
+    image: nginx:alpine
+    container_name: m365-report-viewer
+    ports:
+      - "8080:80"
+    volumes:
+      - ./reports:/usr/share/nginx/html/reports:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+
+    profiles:
+      - viewer
